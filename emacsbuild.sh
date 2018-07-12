@@ -10,20 +10,31 @@ export DESKTOPNAME="Emacs-git"
 # / ------------------------------ \
 # |  DO NOT EDIT THE LINES BELOW!  |
 # \ ------------------------------ /
+export SCRIPT="$(readlink -f "${BASH_SOURCE[0]}")"
+export DIR="$(dirname "$SCRIPT")"
+export CORES="$(getconf _NPROCESSORS_ONLN)"
+
+# LOG VARS
+export LOG_E="[ERROR]"
+export LOG_W="[WARNING]"
+export LOG_I="[INFO]"
+export LOG_D="[DEBUG]"
+
+#cd $DIR
 
 export BINLINK="/usr/local/bin/$SYSTEMBIN"
 export DESKFILE="/usr/share/applications/$DESKTOPNAME.desktop"
 
 if [ $EUID -ne 0 ]; then
-   echo "This script must be run as root"
+   echo "$LOG_E This script must be run as root"
    exit 1
 fi
 
-if [ -f $BINLINK ]; then
+if [ -f "$BINLINK" ]; then
     rm $BINLINK
 fi
 
-if [ -f $DESKFILE ]; then
+if [ -f "$DESKFILE" ]; then
     rm $DESKFILE
 fi
 
@@ -34,27 +45,29 @@ else
     mkdir $TARGETPATH
 fi
 
-if [ ! -f ./icon.png ]; then
-    echo "icon.png not found!"
+if [ ! -f "$DIR/icon.png" ]; then
+    echo "$LOG_E icon.png not found!"
     exit 1
 fi
 
-echo "Welcome to emacs autobuilder!"
+echo "$LOG_I Welcome to emacs autobuilder!"
 
-export SCRIPT="$(readlink -f "${BASH_SOURCE[0]}")"
-export DIR="$(dirname "$SCRIPT")"
-export CORES="$(getconf _NPROCESSORS_ONLN)"
+echo -e "\n$LOG_I Your CPU have $CORES cores!\n"
 
-echo -e "\nYou have $CORES of CPU\n"
-
-$DIR/configure --prefix="$TARGETPATH" --exec-prefix="$TARGETPATH"
+if [ -f "$DIR/configure" ]; then
+    $DIR/configure --prefix="$TARGETPATH" --exec-prefix="$TARGETPATH"
+else
+    echo "$LOG_W NO configure file found! Creating new..."
+    $DIR/autogen.sh
+    $DIR/configure --prefix="$TARGETPATH" --exec-prefix="$TARGETPATH"
+fi
 
 make clean
 make bootstrap -j$CORES
-echo -e "\n\nCompilation finished, installing to $TARGETPATH!\n\n"
+echo -e "\n\n$LOG_I Compilation finished, installing to $TARGETPATH!\n\n"
 make install
 ln -s "$TARGETPATH/$COMPILEBIN" "$BINLINK"
-cp $DIR/icon.png $TARGETPATH
+cp "$DIR/icon.png" "$TARGETPATH"
 
 echo -e \
 "[Desktop Entry]
@@ -73,29 +86,29 @@ echo -e "\n\n\nTo uninstall $DESKTOPNAME run $SYSTEMBIN-uninstall as root!\n\n\n
 
 echo -e \
 "#!/usr/bin/env bash
-# Script for uninstalling Emacs-git.
+# Script for uninstalling $DESKTOPNAME.
 
-echo -e \"\nEmacs-git uninstaller!\n\"
+echo -e \"\\nEmacs-git uninstaller!\\n\"
 
 if [ \$EUID -ne 0 ]; then
-   echo \"\nThis script must be run as root\n\"
+   echo -e \"\\n$LOG_E This script must be run as root\\n\"
    exit 1
 fi
 
 if [ -f \"$DESKFILE\" ]; then
-   rm $DESKFILE
+   rm \"$DESKFILE\"
 fi
 
 if [ -f \"$BINLINK\" ]; then
-   rm $BINLINK
+   rm \"$BINLINK\"
 fi
 
 if [ -d \"$TARGETPATH\" ]; then
-   rm -rf $TARGETPATH
+   rm -rf \"$TARGETPATH\"
 fi
 
 if [ -f \"$BINLINK-uninstall\" ]; then
-   echo \"\n$DESKTOPNAME uninstalled!\n\"
+   echo -e \"\\n$LOG_I $DESKTOPNAME uninstalled!\\n\"
    rm $BINLINK-uninstall
 fi
 " > $BINLINK-uninstall
